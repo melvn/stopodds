@@ -1,7 +1,5 @@
 import './globals.css'
-import { Inter } from 'next/font/google'
-
-const inter = Inter({ subsets: ['latin'] })
+import ClientThemeProvider from '@/components/ThemeProvider'
 
 export const metadata = {
   title: 'StopOdds',
@@ -15,7 +13,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" 
+          rel="stylesheet" 
+        />
+      </head>
+      <body>
+        <ClientThemeProvider>
+          {children}
+        </ClientThemeProvider>
+      </body>
     </html>
   )
 }
