@@ -41,6 +41,7 @@ class HeightBracket(str, Enum):
     HEIGHT_160_175 = "160-175"
     HEIGHT_175_190 = "175-190"
     OVER_190 = ">190"
+    PREFER_NOT = "PreferNot"
 
 class ModelType(str, Enum):
     POISSON = "poisson"

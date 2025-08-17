@@ -81,7 +81,8 @@ export const formFields: FormField[] = [
       { value: '<160', label: 'Under 160cm' },
       { value: '160-175', label: '160-175cm' },
       { value: '175-190', label: '175-190cm' },
-      { value: '>190', label: 'Over 190cm' }
+      { value: '>190', label: 'Over 190cm' },
+      { value: 'PreferNot', label: 'Prefer not to say' }
     ],
     description: 'Your height range (optional)'
   },

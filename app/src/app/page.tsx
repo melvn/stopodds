@@ -1,9 +1,9 @@
-import MaterialSubmissionForm from '@/components/MaterialSubmissionForm';
+import GamifiedForm from '@/components/GamifiedForm';
 
 export default function Home() {
   return (
     <main>
-      <MaterialSubmissionForm />
+      <GamifiedForm />
     </main>
   );
 }
