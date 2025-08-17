@@ -20,6 +20,7 @@ import { SubmissionData, FormState } from '@/types';
 import { formFields, getFieldsByStep, totalSteps } from '@/lib/formConfig';
 import MaterialFormField from './MaterialFormField';
 import MaterialSuccessScreen from './MaterialSuccessScreen';
+import Logo from './Logo';
 
 const stepLabels = [
   'Trip Information',
@@ -170,9 +171,9 @@ export default function MaterialSubmissionForm() {
       <Container maxWidth="sm">
         {/* Header */}
         <Paper elevation={1} sx={{ p: 4, mb: 3, textAlign: 'center' }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            StopOdds Data Collection
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+            <Logo size="large" showText={true} />
+          </Box>
           <Typography variant="subtitle1" color="text.secondary" gutterBottom>
             Help us understand fare inspection patterns on Melbourne public transport
           </Typography>

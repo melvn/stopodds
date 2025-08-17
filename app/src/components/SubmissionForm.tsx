@@ -133,7 +133,7 @@ export default function SubmissionForm() {
         {/* Header */}
         <FormCard className="p-8 mb-6 text-center">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            StopOdds Data Collection
+            StopOdds
           </h1>
           <p className="text-gray-600 mb-6">
             Help us understand fare inspection patterns on Melbourne public transport

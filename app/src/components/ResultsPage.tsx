@@ -26,6 +26,7 @@ import {
   Info,
   Home,
 } from '@mui/icons-material';
+import Logo from './Logo';
 
 interface GroupData {
   group_key: string;
@@ -132,8 +133,11 @@ export default function ResultsPage() {
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: 4 }}>
       <Container maxWidth="lg">
         <Box sx={{ mb: 4, textAlign: 'center' }}>
-          <Typography variant="h3" component="h1" gutterBottom>
-            StopOdds Results
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <Logo size="large" showText={true} />
+          </Box>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ mt: 2 }}>
+            Results Dashboard
           </Typography>
           <Typography variant="subtitle1" color="text.secondary" gutterBottom>
             Melbourne Public Transport Fare Inspection Analysis
