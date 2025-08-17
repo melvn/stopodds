@@ -40,6 +40,7 @@ export default function MaterialSubmissionForm() {
   });
 
   const [showSuccess, setShowSuccess] = useState(false);
+  const [personalEstimate, setPersonalEstimate] = useState<any>(null);
 
   const currentFields = getFieldsByStep(formState.currentStep);
   const isLastStep = formState.currentStep === totalSteps - 1;
@@ -120,6 +121,24 @@ export default function MaterialSubmissionForm() {
       });
 
       if (response.ok) {
+        // Get personal estimate after successful submission
+        const traits = new URLSearchParams();
+        Object.entries(formState.data).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && key !== 'trips' && key !== 'stops') {
+            traits.append(key, value.toString());
+          }
+        });
+        
+        try {
+          const predictionResponse = await fetch(`/api/predict?${traits.toString()}`);
+          if (predictionResponse.ok) {
+            const prediction = await predictionResponse.json();
+            setPersonalEstimate(prediction);
+          }
+        } catch (err) {
+          console.log('Could not fetch personal estimate:', err);
+        }
+        
         setShowSuccess(true);
       } else {
         throw new Error('Submission failed');
@@ -133,6 +152,7 @@ export default function MaterialSubmissionForm() {
 
   const handleReset = () => {
     setShowSuccess(false);
+    setPersonalEstimate(null);
     setFormState({
       data: { trips: 0, stops: 0 },
       errors: {},
@@ -142,7 +162,7 @@ export default function MaterialSubmissionForm() {
   };
 
   if (showSuccess) {
-    return <MaterialSuccessScreen onReset={handleReset} />;
+    return <MaterialSuccessScreen onReset={handleReset} personalEstimate={personalEstimate} />;
   }
 
   return (

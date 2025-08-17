@@ -46,6 +46,7 @@ class ModelType(str, Enum):
     POISSON = "poisson"
     NEGBIN = "negbin"
     LIGHTGBM = "lightgbm"
+    BASELINE = "baseline"
 
 # Pydantic models for API
 class SubmissionCreate(BaseModel):
@@ -81,19 +82,23 @@ class OverviewResponse(BaseModel):
     groups: List[GroupData]
 
 class PredictionResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+    
     probability: float
     confidence_interval: List[float]
     model_run_id: str
     explanation: List[str]
 
 class MethodsResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+    
     model_type: ModelType
     last_trained: str
     sample_size: int
     metrics: Dict[str, Any]
 
 # Database models (SQLAlchemy)
-from sqlalchemy import Column, String, Integer, Boolean, Float, DateTime, Text, JSON
+from sqlalchemy import Column, String, Integer, Boolean, Float, DateTime, Text, JSON, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
@@ -139,4 +144,6 @@ class AggregatePublic(Base):
     n_stops = Column(Integer, nullable=False)
     rate_per_100 = Column(Float, nullable=False)
     irr_vs_ref = Column(Float, nullable=True)
+    confidence_interval_lower = Column(Float, nullable=True)
+    confidence_interval_upper = Column(Float, nullable=True)
     model_run_id = Column(UUID(as_uuid=True), nullable=False)

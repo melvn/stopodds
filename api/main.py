@@ -1,11 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import uvicorn
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import SubmissionCreate, OverviewResponse, PredictionResponse, MethodsResponse
-from database import init_db
+from models import SubmissionCreate, OverviewResponse, PredictionResponse, MethodsResponse, GroupData, ModelType
+from database import init_db, get_db
+from services import SubmissionService, ModelService, AggregateService, PredictionService
 
 app = FastAPI(
     title="StopOdds API",
@@ -30,19 +32,67 @@ async def root():
     return {"message": "StopOdds API", "version": "0.1.0"}
 
 @app.post("/api/submit")
-async def submit_data(submission: SubmissionCreate):
-    # TODO: Implement submission logic
-    return {"status": "accepted"}
+async def submit_data(
+    submission: SubmissionCreate, 
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        # Get user agent for fraud detection
+        user_agent = request.headers.get("user-agent", "")
+        
+        # Convert submission to dict and extract enum values 
+        submission_data = submission.dict()
+        
+        # Convert enum objects to their string values
+        for key, value in submission_data.items():
+            if hasattr(value, 'value'):  # This is an enum
+                submission_data[key] = value.value
+        
+        # Create submission
+        result = await SubmissionService.create_submission(
+            db, 
+            submission_data, 
+            user_agent
+        )
+        
+        return {"status": "accepted", "id": str(result['id'])}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/overview")
-async def get_overview() -> OverviewResponse:
-    # TODO: Implement overview logic
-    return OverviewResponse(
-        total_submissions=0,
-        total_trips=0,
-        total_stops=0,
-        groups=[]
-    )
+async def get_overview(db: AsyncSession = Depends(get_db)) -> OverviewResponse:
+    try:
+        # Get basic stats
+        stats = await SubmissionService.get_submission_stats(db)
+        
+        # Get public aggregates
+        aggregates = await AggregateService.get_public_aggregates(db)
+        
+        # Convert to response format
+        groups = []
+        for agg in aggregates:
+            groups.append(GroupData(
+                group_key=agg.group_key,
+                n_people=agg.n_people,
+                n_trips=agg.n_trips,
+                n_stops=agg.n_stops,
+                rate_per_100=agg.rate_per_100,
+                irr_vs_ref=agg.irr_vs_ref,
+                confidence_interval=[
+                    agg.confidence_interval_lower, 
+                    agg.confidence_interval_upper
+                ] if agg.confidence_interval_lower is not None else None
+            ))
+        
+        return OverviewResponse(
+            total_submissions=stats['total_submissions'],
+            total_trips=stats['total_trips'],
+            total_stops=stats['total_stops'],
+            groups=groups
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/predict")
 async def get_prediction(
@@ -52,25 +102,64 @@ async def get_prediction(
     skin_tone: Optional[str] = None,
     height_bracket: Optional[str] = None,
     visible_disability: Optional[bool] = None,
-    concession: Optional[bool] = None
+    concession: Optional[bool] = None,
+    db: AsyncSession = Depends(get_db)
 ) -> PredictionResponse:
-    # TODO: Implement prediction logic
-    return PredictionResponse(
-        probability=0.0,
-        confidence_interval=[0.0, 0.0],
-        model_run_id="",
-        explanation=[]
-    )
+    try:
+        traits = {
+            'age_bracket': age_bracket,
+            'gender': gender,
+            'ethnicity': ethnicity,
+            'skin_tone': skin_tone,
+            'height_bracket': height_bracket,
+            'visible_disability': visible_disability,
+            'concession': concession
+        }
+        
+        # Remove None values
+        traits = {k: v for k, v in traits.items() if v is not None}
+        
+        # Get personal estimate
+        estimate = await PredictionService.get_personal_estimate(db, traits)
+        
+        return PredictionResponse(
+            probability=estimate['probability'],
+            confidence_interval=estimate['confidence_interval'],
+            model_run_id=estimate['model_run_id'],
+            explanation=estimate['explanation']
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/methods")
-async def get_methods() -> MethodsResponse:
-    # TODO: Implement methods logic
-    return MethodsResponse(
-        model_type="poisson",
-        last_trained="",
-        sample_size=0,
-        metrics={}
-    )
+async def get_methods(db: AsyncSession = Depends(get_db)) -> MethodsResponse:
+    try:
+        # Get latest model run
+        latest_model = await ModelService.get_latest_model_run(db)
+        
+        # Get submission stats
+        stats = await SubmissionService.get_submission_stats(db)
+        
+        if latest_model:
+            return MethodsResponse(
+                model_type=latest_model.model_type,
+                last_trained=latest_model.created_at.isoformat(),
+                sample_size=latest_model.train_rows,
+                metrics=latest_model.metrics or {}
+            )
+        else:
+            return MethodsResponse(
+                model_type=ModelType.BASELINE,
+                last_trained="",
+                sample_size=stats['total_submissions'],
+                metrics={
+                    "note": "Insufficient data for model training",
+                    "min_required_submissions": 500,
+                    "min_required_stops": 100
+                }
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

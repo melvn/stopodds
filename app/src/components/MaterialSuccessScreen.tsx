@@ -26,9 +26,10 @@ import {
 
 interface MaterialSuccessScreenProps {
   onReset: () => void;
+  personalEstimate?: any;
 }
 
-export default function MaterialSuccessScreen({ onReset }: MaterialSuccessScreenProps) {
+export default function MaterialSuccessScreen({ onReset, personalEstimate }: MaterialSuccessScreenProps) {
   return (
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: 4 }}>
       <Container maxWidth="sm">
@@ -46,6 +47,48 @@ export default function MaterialSuccessScreen({ onReset }: MaterialSuccessScreen
             <Typography variant="subtitle1" color="text.secondary" gutterBottom>
               Your data has been successfully submitted to StopOdds
             </Typography>
+
+            {/* Personal Estimate Card */}
+            {personalEstimate && (
+              <Paper elevation={2} sx={{ p: 3, mt: 3, mb: 3, bgcolor: 'primary.50', border: '2px solid', borderColor: 'primary.200' }}>
+                <Typography variant="h6" gutterBottom color="primary.main">
+                  Your Personal Risk Estimate
+                </Typography>
+                <Typography variant="h4" color="primary.dark" gutterBottom>
+                  {personalEstimate.probability}%
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Estimated chance of being stopped per 100 trips
+                  {personalEstimate.confidence_interval && (
+                    <> (Range: {personalEstimate.confidence_interval[0]}% - {personalEstimate.confidence_interval[1]}%)</>
+                  )}
+                </Typography>
+                {personalEstimate.explanation && personalEstimate.explanation.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Key Factors:
+                    </Typography>
+                    <List dense>
+                      {personalEstimate.explanation.map((factor: string, index: number) => (
+                        <ListItem key={index} sx={{ py: 0 }}>
+                          <ListItemText 
+                            primary={`• ${factor}`}
+                            primaryTypographyProps={{ variant: 'body2' }}
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                )}
+                {personalEstimate.is_baseline && (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    <Typography variant="caption">
+                      This is a baseline estimate. Accuracy will improve as more data is collected.
+                    </Typography>
+                  </Alert>
+                )}
+              </Paper>
+            )}
 
             {/* What happens next */}
             <Paper elevation={1} sx={{ p: 3, mt: 3, mb: 3, bgcolor: 'primary.50' }}>
