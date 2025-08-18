@@ -75,7 +75,7 @@ export default function MethodologyPage() {
               StopOdds uses rigorous statistical methods to identify patterns in fare inspection data while protecting individual privacy.
             </Alert>
             <Typography variant="body1" paragraph>
-              Our analysis employs <strong>Poisson regression with exposure offsets</strong> to model stop counts while accounting for different trip frequencies across demographic groups. This approach allows us to calculate meaningful inspection rates and identify statistically significant differences between groups.
+              Our analysis primarily uses <strong>LightGBM machine learning models</strong> to predict inspection rates while accounting for complex interactions between demographic characteristics. We also maintain Poisson regression models for statistical inference. This hybrid approach provides both accurate predictions and interpretable statistical insights.
             </Typography>
           </CardContent>
         </Card>
@@ -172,7 +172,24 @@ export default function MethodologyPage() {
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant="body1" paragraph>
-                  We use <strong>Poisson regression</strong> to model the relationship between demographic characteristics and inspection frequency:
+                  We use <strong>LightGBM gradient boosting</strong> as our primary prediction model, with statistical models for inference:
+                </Typography>
+                
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Primary Model: LightGBM
+                </Typography>
+                <Paper sx={{ p: 2, bgcolor: 'grey.50', mb: 2 }}>
+                  <Typography variant="body2">
+                    • Gradient boosting machine learning algorithm<br/>
+                    • Handles categorical features natively<br/>
+                    • Automatically discovers feature interactions<br/>
+                    • Weighted by trip counts for robust rate estimation<br/>
+                    • SHAP values provide individual explanations
+                  </Typography>
+                </Paper>
+                
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Statistical Model: Poisson Regression
                 </Typography>
                 <Paper sx={{ p: 2, bgcolor: 'grey.50', mb: 2 }}>
                   <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
@@ -180,30 +197,7 @@ export default function MethodologyPage() {
                   </Typography>
                 </Paper>
                 <Typography variant="body1" paragraph>
-                  Where:
-                </Typography>
-                <List dense>
-                  <ListItem>
-                    <ListItemText 
-                      primary="E[stops_i]" 
-                      secondary="Expected number of stops for person i" 
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText 
-                      primary="log(trips_i)" 
-                      secondary="Natural log of trips as exposure offset" 
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText 
-                      primary="β coefficients" 
-                      secondary="Effect of each demographic characteristic" 
-                    />
-                  </ListItem>
-                </List>
-                <Typography variant="body1" paragraph sx={{ mt: 2 }}>
-                  If overdispersion is detected (variance &gt; mean), we switch to a <strong>Negative Binomial model</strong> for more robust estimates.
+                  The statistical model provides interpretable coefficients and confidence intervals, while LightGBM provides more accurate individual predictions.
                 </Typography>
               </AccordionDetails>
             </Accordion>
@@ -214,31 +208,56 @@ export default function MethodologyPage() {
               </AccordionSummary>
               <AccordionDetails>
                 <Typography variant="body1" paragraph>
-                  Model coefficients are converted to <strong>Incidence Rate Ratios (IRRs)</strong> for easier interpretation:
+                  We provide results from both approaches:
+                </Typography>
+                
+                <Typography variant="h6" gutterBottom>
+                  LightGBM Predictions
                 </Typography>
                 <List dense>
                   <ListItem>
                     <ListItemText 
-                      primary="IRR = 1.0" 
-                      secondary="No difference from reference group" 
+                      primary="Individual risk estimates" 
+                      secondary="Personalized predictions based on your specific characteristics" 
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText 
-                      primary="IRR > 1.0" 
-                      secondary="Higher inspection rate than reference group" 
+                      primary="SHAP explanations" 
+                      secondary="Shows which factors most influence your prediction" 
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText 
-                      primary="IRR < 1.0" 
-                      secondary="Lower inspection rate than reference group" 
+                      primary="Bootstrap confidence intervals" 
+                      secondary="Uncertainty estimates from model variation" 
                     />
                   </ListItem>
                 </List>
-                <Typography variant="body1" paragraph sx={{ mt: 2 }}>
-                  All results include <strong>95% confidence intervals</strong>. If the confidence interval includes 1.0, the difference is not statistically significant.
+                
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Statistical Analysis
                 </Typography>
+                <List dense>
+                  <ListItem>
+                    <ListItemText 
+                      primary="Incidence Rate Ratios (IRRs)" 
+                      secondary="Relative rates between demographic groups" 
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText 
+                      primary="95% confidence intervals" 
+                      secondary="Statistical significance testing" 
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText 
+                      primary="Group-level comparisons" 
+                      secondary="Population-wide patterns and disparities" 
+                    />
+                  </ListItem>
+                </List>
               </AccordionDetails>
             </Accordion>
 
@@ -287,29 +306,57 @@ export default function MethodologyPage() {
                 <Typography variant="body1" paragraph>
                   We validate our models through:
                 </Typography>
+                
+                <Typography variant="h6" gutterBottom>
+                  LightGBM Validation
+                </Typography>
+                <List dense>
+                  <ListItem>
+                    <ListItemText 
+                      primary="Cross-validation" 
+                      secondary="3-fold validation to assess model stability" 
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText 
+                      primary="Hold-out testing" 
+                      secondary="20% test set for unbiased performance evaluation" 
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText 
+                      primary="Feature importance analysis" 
+                      secondary="Identifying most predictive demographic factors" 
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText 
+                      primary="SHAP consistency" 
+                      secondary="Ensuring explanation quality and interpretability" 
+                    />
+                  </ListItem>
+                </List>
+                
+                <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                  Statistical Validation
+                </Typography>
                 <List dense>
                   <ListItem>
                     <ListItemText 
                       primary="Goodness-of-fit tests" 
-                      secondary="Chi-square tests to check model appropriateness" 
+                      secondary="Chi-square tests for Poisson model appropriateness" 
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText 
                       primary="Overdispersion testing" 
-                      secondary="Checking if Negative Binomial model is needed" 
+                      secondary="Automatic switching to Negative Binomial if needed" 
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText 
                       primary="Residual analysis" 
-                      secondary="Examining patterns in model residuals" 
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText 
-                      primary="Sensitivity analysis" 
-                      secondary="Testing robustness to different model specifications" 
+                      secondary="Examining patterns in statistical model residuals" 
                     />
                   </ListItem>
                 </List>
@@ -336,20 +383,20 @@ export default function MethodologyPage() {
                 <List dense>
                   <ListItem>
                     <ListItemText 
-                      primary="≥500 valid submissions" 
-                      secondary="Ensures sufficient sample size for reliable estimates" 
+                      primary="≥300 valid submissions" 
+                      secondary="Sufficient sample size for LightGBM training" 
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText 
-                      primary="≥100 total stops" 
-                      secondary="Adequate events for Poisson modeling" 
+                      primary="≥50 total stops" 
+                      secondary="Adequate events for pattern detection" 
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText 
                       primary="Multiple demographic groups" 
-                      secondary="Enables meaningful comparisons" 
+                      secondary="Enables meaningful comparisons and feature learning" 
                     />
                   </ListItem>
                 </List>
@@ -373,8 +420,14 @@ export default function MethodologyPage() {
                   </ListItem>
                   <ListItem>
                     <ListItemText 
+                      primary="Automatic model selection" 
+                      secondary="System chooses best performing model (LightGBM preferred)" 
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText 
                       primary="Regular retraining" 
-                      secondary="Model updated weekly with new data" 
+                      secondary="Models updated weekly with new data" 
                     />
                   </ListItem>
                 </List>

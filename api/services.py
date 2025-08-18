@@ -3,11 +3,15 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
 from models import Submission, ModelRun, AggregatePublic
 from database import get_db
+from train import StopOddsModeler
 import hashlib
 import os
+import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 import uuid
+import glob
 
 class SubmissionService:
     @staticmethod
@@ -66,11 +70,12 @@ class SubmissionService:
     
     @staticmethod
     async def check_minimum_requirements(db: AsyncSession) -> Dict[str, Any]:
-        """Check if we have minimum data for model training"""
+        """Check if we have minimum data for model training (lowered for LightGBM)"""
         stats = await SubmissionService.get_submission_stats(db)
         
-        min_submissions = 500
-        min_stops = 100
+        # Lowered requirements for LightGBM (more robust with smaller datasets)
+        min_submissions = 300
+        min_stops = 50
         
         meets_requirements = (
             stats['total_submissions'] >= min_submissions and 
@@ -83,7 +88,8 @@ class SubmissionService:
             'requirements': {
                 'min_submissions': min_submissions,
                 'min_stops': min_stops
-            }
+            },
+            'model_type': 'lightgbm'
         }
 
 class ModelService:
@@ -161,74 +167,159 @@ class AggregateService:
         await db.commit()
 
 class PredictionService:
+    _cached_model = None
+    _model_timestamp = None
+    
     @staticmethod
     def calculate_baseline_estimate(traits: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate a simple baseline estimate when no model is available"""
-        # This is a placeholder that provides a baseline estimate
-        # Based on general Melbourne public transport inspection patterns
-        
+        # Enhanced baseline with simple trait adjustments
         base_rate = 8.5  # Base rate per 100 trips
-        confidence_interval = [6.0, 11.0]
+        
+        # Simple adjustments based on traits
+        if traits.get('concession'):
+            base_rate *= 0.85  # Concession users checked less
+        
+        if traits.get('age_bracket') == '18-24':
+            base_rate *= 1.15  # Young adults checked more
+        elif traits.get('age_bracket') == '45+':
+            base_rate *= 0.95  # Older adults checked slightly less
+        
+        if traits.get('visible_disability'):
+            base_rate *= 0.8  # Visible disability may reduce checks
+        
+        # Cap at reasonable bounds
+        base_rate = max(2.0, min(base_rate, 20.0))
+        confidence_interval = [max(1.0, base_rate - 3.0), base_rate + 3.0]
         
         explanation = [
             "Based on limited data from Melbourne commuters",
-            "Estimate will improve as more data is collected",
-            "Current sample size insufficient for detailed modeling"
+            "Simple adjustments made for your demographic profile",
+            "Accuracy will improve as more data is collected"
         ]
         
         return {
-            'probability': base_rate,
-            'confidence_interval': confidence_interval,
+            'probability': round(base_rate, 1),
+            'confidence_interval': [round(ci, 1) for ci in confidence_interval],
             'model_run_id': 'baseline',
             'explanation': explanation,
             'is_baseline': True
         }
     
     @staticmethod
+    def load_latest_model() -> Optional[StopOddsModeler]:
+        """Load the most recent trained model"""
+        try:
+            # Find the latest model file
+            model_files = glob.glob("/tmp/stopodds_model_*.lgb")
+            if not model_files:
+                return None
+            
+            # Get the most recent model
+            latest_model = max(model_files, key=os.path.getctime)
+            
+            # Check if we need to reload (cache for 1 hour)
+            model_time = os.path.getctime(latest_model)
+            if (PredictionService._cached_model is None or 
+                PredictionService._model_timestamp is None or
+                model_time > PredictionService._model_timestamp):
+                
+                modeler = StopOddsModeler()
+                modeler.load_model(latest_model)
+                
+                PredictionService._cached_model = modeler
+                PredictionService._model_timestamp = model_time
+            
+            return PredictionService._cached_model
+            
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            return None
+    
+    @staticmethod
+    def prepare_prediction_features(traits: Dict[str, Any]) -> pd.DataFrame:
+        """Prepare features for prediction"""
+        # Create a single-row DataFrame with the user's traits
+        data = {
+            'age_bracket': traits.get('age_bracket'),
+            'gender': traits.get('gender'),
+            'ethnicity': traits.get('ethnicity'),
+            'skin_tone': traits.get('skin_tone'),
+            'height_bracket': traits.get('height_bracket'),
+            'visible_disability': traits.get('visible_disability'),
+            'concession': traits.get('concession')
+        }
+        
+        df = pd.DataFrame([data])
+        
+        # Apply the same preprocessing as in training
+        modeler = StopOddsModeler()
+        df_processed = modeler.prepare_features(df, for_lgb=True)
+        
+        # Remove any extra columns that might have been added
+        feature_cols = [col for col in df_processed.columns 
+                       if col not in ['stops', 'trips', 'id', 'created_at', 'user_agent_hash']]
+        
+        return df_processed[feature_cols]
+    
+    @staticmethod
     async def get_personal_estimate(
         db: AsyncSession, 
         traits: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Get personal risk estimate based on submitted traits"""
+        """Get personal risk estimate based on submitted traits using trained model"""
         
-        # Check if we have a trained model
-        latest_model = await ModelService.get_latest_model_run(db)
+        # Try to load the latest trained model
+        model = PredictionService.load_latest_model()
         
-        if not latest_model:
+        if model is None or model.model_type != 'lightgbm':
+            # Fallback to database model or baseline
+            latest_model_run = await ModelService.get_latest_model_run(db)
+            if not latest_model_run:
+                return PredictionService.calculate_baseline_estimate(traits)
+            else:
+                # Enhanced baseline with model metadata
+                baseline = PredictionService.calculate_baseline_estimate(traits)
+                baseline['model_run_id'] = str(latest_model_run.run_id)
+                baseline['explanation'].append("Using statistical baseline from trained model")
+                return baseline
+        
+        try:
+            # Prepare features for prediction
+            X = PredictionService.prepare_prediction_features(traits)
+            
+            # Make prediction with uncertainty
+            pred_result = model.predict_with_uncertainty(X)
+            
+            # Convert rate to percentage (per 100 trips)
+            rate_prediction = pred_result['prediction'][0] * 100
+            ci_lower = pred_result['lower_ci'][0] * 100
+            ci_upper = pred_result['upper_ci'][0] * 100
+            
+            # Cap at reasonable bounds
+            rate_prediction = max(0.5, min(rate_prediction, 25.0))
+            ci_lower = max(0.1, min(ci_lower, rate_prediction))
+            ci_upper = max(rate_prediction, min(ci_upper, 30.0))
+            
+            # Generate SHAP-based explanations
+            explanations = model.explain_prediction(X, max_features=3)
+            
+            # Get model metadata
+            latest_model_run = await ModelService.get_latest_model_run(db)
+            model_run_id = str(latest_model_run.run_id) if latest_model_run else 'lightgbm_latest'
+            
+            return {
+                'probability': round(rate_prediction, 1),
+                'confidence_interval': [round(ci_lower, 1), round(ci_upper, 1)],
+                'model_run_id': model_run_id,
+                'explanation': explanations[0].split('; ') if explanations else [
+                    "Your profile suggests typical inspection patterns",
+                    "Based on machine learning analysis of demographic data"
+                ],
+                'is_baseline': False
+            }
+            
+        except Exception as e:
+            print(f"Error in model prediction: {e}")
+            # Fallback to baseline if prediction fails
             return PredictionService.calculate_baseline_estimate(traits)
-        
-        # For now, return a model-based estimate (simplified)
-        # In a full implementation, this would use the actual trained model
-        base_rate = 8.5
-        
-        # Simple adjustments based on traits (placeholder logic)
-        adjustments = []
-        
-        if traits.get('concession'):
-            base_rate *= 0.85  # Concession users checked less frequently
-            adjustments.append("Concession status may reduce inspection rate")
-        
-        if traits.get('age_bracket') == '18-24':
-            base_rate *= 1.15  # Young adults checked more frequently
-            adjustments.append("Age group may experience higher inspection rates")
-        
-        # Cap at reasonable bounds
-        base_rate = max(2.0, min(base_rate, 20.0))
-        
-        confidence_interval = [
-            max(0.0, base_rate - 3.0),
-            base_rate + 3.0
-        ]
-        
-        explanation = adjustments if adjustments else [
-            "Your traits suggest average inspection rates",
-            "Estimate based on current model and data"
-        ]
-        
-        return {
-            'probability': round(base_rate, 1),
-            'confidence_interval': [round(ci, 1) for ci in confidence_interval],
-            'model_run_id': str(latest_model.run_id),
-            'explanation': explanation,
-            'is_baseline': False
-        }

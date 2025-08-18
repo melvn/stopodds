@@ -8,6 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import SubmissionCreate, OverviewResponse, PredictionResponse, MethodsResponse, GroupData, ModelType
 from database import init_db, get_db
 from services import SubmissionService, ModelService, AggregateService, PredictionService
+from train import train_models
+import pandas as pd
+from sqlalchemy import text
 
 app = FastAPI(
     title="StopOdds API",
@@ -154,12 +157,94 @@ async def get_methods(db: AsyncSession = Depends(get_db)) -> MethodsResponse:
                 sample_size=stats['total_submissions'],
                 metrics={
                     "note": "Insufficient data for model training",
-                    "min_required_submissions": 500,
-                    "min_required_stops": 100
+                    "min_required_submissions": 300,
+                    "min_required_stops": 50,
+                    "current_submissions": stats['total_submissions'],
+                    "current_stops": stats['total_stops']
                 }
             )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/train")
+async def train_model(db: AsyncSession = Depends(get_db)):
+    """Train a new model with current data"""
+    try:
+        # Check if we have sufficient data
+        requirements = await SubmissionService.check_minimum_requirements(db)
+        
+        if not requirements['meets_requirements']:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Insufficient data for training",
+                    "requirements": requirements['requirements'],
+                    "current_stats": requirements['stats']
+                }
+            )
+        
+        # Fetch all submission data
+        result = await db.execute(text("""
+            SELECT age_bracket, gender, ethnicity, skin_tone, height_bracket,
+                   visible_disability, concession, trips, stops
+            FROM submissions
+            WHERE trips > 0 AND stops >= 0 AND stops <= trips
+            ORDER BY created_at DESC
+        """))
+        
+        rows = result.fetchall()
+        if len(rows) == 0:
+            raise HTTPException(status_code=400, detail="No valid training data found")
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(rows, columns=[
+            'age_bracket', 'gender', 'ethnicity', 'skin_tone', 'height_bracket',
+            'visible_disability', 'concession', 'trips', 'stops'
+        ])
+        
+        # Train models
+        training_results = train_models(df)
+        
+        # Determine the primary model that was successfully trained
+        primary_model = training_results.get('primary_model', 'baseline')
+        
+        if primary_model in ['lightgbm', 'negbin', 'poisson']:
+            # Create model run record
+            model_data = {
+                'model_type': primary_model,
+                'train_rows': len(df),
+                'metrics': training_results.get(primary_model, {}).get('metrics', {}),
+                'coefficients': training_results.get(primary_model, {}).get('coefficients', {}),
+                'public_snapshot': True,
+                'notes': f"Trained with {len(df)} submissions. Primary model: {primary_model}"
+            }
+            
+            model_run = await ModelService.create_model_run(db, model_data)
+            
+            return {
+                "status": "success",
+                "model_type": primary_model,
+                "model_run_id": str(model_run.run_id),
+                "training_samples": len(df),
+                "metrics": training_results.get(primary_model, {}).get('metrics', {}),
+                "timestamp": model_run.created_at.isoformat()
+            }
+        else:
+            raise HTTPException(
+                status_code=500, 
+                detail={
+                    "message": "Model training failed",
+                    "errors": {
+                        "lightgbm_error": training_results.get('lightgbm_error'),
+                        "glm_error": training_results.get('glm_error')
+                    }
+                }
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
