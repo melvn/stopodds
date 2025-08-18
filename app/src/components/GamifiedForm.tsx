@@ -151,7 +151,7 @@ function AnimatedButton({ option, isSelected, onClick, delay, questionKey }: Ani
 
 export default function GamifiedForm() {
   const [formState, setFormState] = useState<FormState>({
-    data: { trips: 0, stops: 0 },
+    data: {},
     errors: {},
     isSubmitting: false,
     currentStep: 0
@@ -226,7 +226,7 @@ export default function GamifiedForm() {
     setShowSuccess(false);
     setPersonalEstimate(null);
     setFormState({
-      data: { trips: 0, stops: 0 },
+      data: {},
       errors: {},
       isSubmitting: false,
       currentStep: 0
