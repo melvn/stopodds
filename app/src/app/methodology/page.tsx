@@ -75,7 +75,7 @@ export default function MethodologyPage() {
               StopOdds uses rigorous statistical methods to identify patterns in fare inspection data while protecting individual privacy.
             </Alert>
             <Typography variant="body1" paragraph>
-              Our analysis primarily uses <strong>LightGBM machine learning models</strong> to predict inspection rates while accounting for complex interactions between demographic characteristics. We also maintain Poisson regression models for statistical inference. This hybrid approach provides both accurate predictions and interpretable statistical insights.
+              Our analysis model primarily uses <strong>gradient boosted decision trees</strong> to predict inspection rates while accounting for complex interactions between demographic characteristics. We also maintain Poisson regression models for statistical inference. This hybrid approach provides both accurate predictions and interpretable statistical insights.
             </Typography>
           </CardContent>
         </Card>

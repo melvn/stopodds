@@ -13,6 +13,7 @@ import {
   Grid,
   Chip,
   IconButton,
+  Link,
 } from '@mui/material';
 import {
   CheckCircle,
@@ -22,6 +23,7 @@ import {
   TrendingUp,
   Analytics,
   Refresh,
+  Science,
 } from '@mui/icons-material';
 import { SubmissionData, FormState } from '@/types';
 import { formFields } from '@/lib/formConfig';
@@ -413,11 +415,26 @@ export default function GamifiedForm() {
           </CardContent>
         </Card>
 
-        {/* Fun Stats */}
+        {/* Info Links */}
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
-          <Chip icon={<TrendingUp />} label="Quick & Easy" variant="outlined" />
-          <Chip icon={<Analytics />} label="Anonymous" variant="outlined" />
-          <Chip icon={<CheckCircle />} label="Helpful" variant="outlined" />
+          <Link href="/privacy" underline="none">
+            <Chip 
+              icon={<Analytics />} 
+              label="Anonymous" 
+              variant="outlined" 
+              clickable
+              sx={{ '&:hover': { backgroundColor: 'primary.50' } }}
+            />
+          </Link>
+          <Link href="/methodology" underline="none">
+            <Chip 
+              icon={<Science />} 
+              label="Methodology" 
+              variant="outlined" 
+              clickable
+              sx={{ '&:hover': { backgroundColor: 'primary.50' } }}
+            />
+          </Link>
         </Box>
       </Container>
     </Box>
