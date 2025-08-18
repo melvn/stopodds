@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   Container,
   Card,
@@ -29,7 +30,22 @@ interface MaterialSuccessScreenProps {
   personalEstimate?: any;
 }
 
+interface OverviewData {
+  total_submissions: number;
+  total_trips: number;
+  total_stops: number;
+}
+
 export default function MaterialSuccessScreen({ onReset, personalEstimate }: MaterialSuccessScreenProps) {
+  const [overviewData, setOverviewData] = useState<OverviewData | null>(null);
+
+  useEffect(() => {
+    // Fetch population statistics for comparison
+    fetch('/api/overview')
+      .then(res => res.json())
+      .then(data => setOverviewData(data))
+      .catch(err => console.error('Failed to fetch overview data:', err));
+  }, []);
   return (
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: 4 }}>
       <Container maxWidth="sm">
@@ -55,12 +71,45 @@ export default function MaterialSuccessScreen({ onReset, personalEstimate }: Mat
                   Your Personal Risk Estimate
                 </Typography>
                 <Typography variant="h4" color="primary.dark" gutterBottom>
-                  {personalEstimate.probability}%
+                  {personalEstimate.probability.toFixed(1)}%
                 </Typography>
+                
+                {overviewData && (() => {
+                  const userRate = personalEstimate.probability;
+                  const populationRate = (overviewData.total_stops / overviewData.total_trips) * 100;
+                  const multiplier = userRate / populationRate;
+                  
+                  let comparisonText = '';
+                  let comparisonColor = 'text.secondary';
+                  
+                  if (multiplier > 1.5) {
+                    comparisonText = `You're ${multiplier.toFixed(1)}x more likely to be stopped than the average person`;
+                    comparisonColor = 'error.main';
+                  } else if (multiplier > 1.1) {
+                    comparisonText = `You're ${multiplier.toFixed(1)}x more likely to be stopped than average`;
+                    comparisonColor = 'warning.main';
+                  } else if (multiplier < 0.9) {
+                    comparisonText = `You're ${(1/multiplier).toFixed(1)}x less likely to be stopped than average`;
+                    comparisonColor = 'success.main';
+                  } else {
+                    comparisonText = "Your risk is close to the population average";
+                    comparisonColor = 'text.primary';
+                  }
+                  
+                  return (
+                    <Typography variant="body1" color={comparisonColor} gutterBottom sx={{ fontWeight: 'medium', mb: 1 }}>
+                      {comparisonText}
+                    </Typography>
+                  );
+                })()}
+                
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Estimated chance of being stopped per 100 trips
+                  Per 100 trips
+                  {overviewData && (
+                    <> • Population average: {((overviewData.total_stops / overviewData.total_trips) * 100).toFixed(1)}%</>
+                  )}
                   {personalEstimate.confidence_interval && (
-                    <> (Range: {personalEstimate.confidence_interval[0]}% - {personalEstimate.confidence_interval[1]}%)</>
+                    <> • Range: {personalEstimate.confidence_interval[0].toFixed(1)}%-{personalEstimate.confidence_interval[1].toFixed(1)}%</>
                   )}
                 </Typography>
                 {personalEstimate.explanation && personalEstimate.explanation.length > 0 && (
