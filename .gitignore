@@ -83,7 +83,7 @@ build/
 # Data files (never commit real user data)
 data/
 *.csv
-*.json
+data/*.json
 *.parquet
 
 # Jupyter notebooks
