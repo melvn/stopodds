@@ -72,16 +72,17 @@ export default function MaterialSubmissionForm() {
       }
       
       if (field.type === 'number' && value !== null && value !== undefined) {
-        if (field.min !== undefined && value < field.min) {
+        const numValue = Number(value);
+        if (field.min !== undefined && numValue < field.min) {
           errors[field.id] = `${field.label} must be at least ${field.min}`;
         }
-        if (field.max !== undefined && value > field.max) {
+        if (field.max !== undefined && numValue > field.max) {
           errors[field.id] = `${field.label} must be no more than ${field.max}`;
         }
       }
 
-      if (field.id === 'stops' && formState.data.trips) {
-        if (value > formState.data.trips) {
+      if (field.id === 'stops' && formState.data.trips && value !== null && value !== undefined) {
+        if (Number(value) > formState.data.trips) {
           errors[field.id] = 'Stops cannot exceed total trips';
         }
       }

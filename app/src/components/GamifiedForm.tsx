@@ -153,7 +153,10 @@ function AnimatedButton({ option, isSelected, onClick, delay, questionKey }: Ani
 
 export default function GamifiedForm() {
   const [formState, setFormState] = useState<FormState>({
-    data: {},
+    data: {
+      trips: 0,
+      stops: 0
+    },
     errors: {},
     isSubmitting: false,
     currentStep: 0
@@ -228,7 +231,10 @@ export default function GamifiedForm() {
     setShowSuccess(false);
     setPersonalEstimate(null);
     setFormState({
-      data: {},
+      data: {
+        trips: 0,
+        stops: 0
+      },
       errors: {},
       isSubmitting: false,
       currentStep: 0
@@ -286,14 +292,14 @@ export default function GamifiedForm() {
     
     if (question.type === 'boolean') {
       // Create Yes/No options for boolean questions
-      const options = [
+      const options: Array<{ label: string; value: boolean | null }> = [
         { label: 'Yes', value: true },
         { label: 'No', value: false }
       ];
       
       // Add "Prefer not to answer" for optional questions
       if (!question.required) {
-        options.push({ label: 'Prefer not to answer', value: 'PreferNot' });
+        options.push({ label: 'Prefer not to answer', value: null });
       }
       
       return options;
@@ -306,7 +312,7 @@ export default function GamifiedForm() {
       
       // Add "Prefer not to answer" for optional questions
       if (!question.required) {
-        options.push({ label: 'Prefer not to answer', value: 'PreferNot' });
+        options.push({ label: 'Prefer not to answer', value: null });
       }
       
       return options;
