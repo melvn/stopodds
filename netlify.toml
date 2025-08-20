@@ -1,6 +1,6 @@
 [build]
   base = "app/"
-  command = "cd app && npm run build"
+  command = "cd app && npm install && npm run build"
   publish = "app/.next"
 
 [build.environment]
