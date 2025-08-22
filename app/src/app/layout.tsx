@@ -4,6 +4,11 @@ import ClientThemeProvider from '@/components/ThemeProvider'
 export const metadata = {
   title: 'StopOdds',
   description: 'Estimate your chances of being stopped on Melbourne public transport',
+  icons: {
+    icon: '/logo1.png',
+    shortcut: '/logo1.png',
+    apple: '/logo1.png',
+  },
 }
 
 export default function RootLayout({
