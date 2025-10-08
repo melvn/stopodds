@@ -31,7 +31,9 @@ async def startup_event():
     await init_db()
 
 @app.get("/")
-async def root():
+async def root(db: AsyncSession = Depends(get_db)):
+    # Lightweight DB query to keep connection alive
+    await db.execute(text("SELECT 1"))
     return {"message": "StopOdds API", "version": "0.1.0"}
 
 @app.post("/api/submit")
