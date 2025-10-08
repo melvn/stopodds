@@ -1,11 +1,8 @@
 [build]
   base = "app"
   command = "npm ci && npm run build"
-  publish = ".next"
+  publish = "out"
 
 [build.environment]
   NODE_VERSION = "18"
   NEXT_PUBLIC_API_URL = "https://stopodds-production.up.railway.app"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
