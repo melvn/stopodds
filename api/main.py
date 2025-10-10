@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 import uvicorn
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime
 
 from models import SubmissionCreate, OverviewResponse, PredictionResponse, MethodsResponse, GroupData, ModelType
 from database import init_db, get_db
@@ -31,10 +32,36 @@ async def startup_event():
     await init_db()
 
 @app.get("/")
-async def root(db: AsyncSession = Depends(get_db)):
-    # Lightweight DB query to keep connection alive
-    await db.execute(text("SELECT 1"))
-    return {"message": "StopOdds API", "version": "0.1.0"}
+async def root():
+    return {"message": "StopOdds API", "version": "0.1.0", "status": "healthy"}
+
+@app.get("/health")
+async def health_check(db: AsyncSession = Depends(get_db)):
+    """
+    Health check endpoint with database verification.
+    Keeps Railway DB connection alive and verifies system health.
+    """
+    try:
+        # Verify database connection
+        result = await db.execute(text("SELECT 1 as health"))
+        row = result.fetchone()
+
+        db_healthy = row is not None and row[0] == 1
+
+        return {
+            "status": "healthy" if db_healthy else "unhealthy",
+            "database": "connected" if db_healthy else "disconnected",
+            "version": "0.1.0",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "error",
+            "error": str(e),
+            "version": "0.1.0",
+            "timestamp": datetime.now().isoformat()
+        }
 
 @app.post("/api/submit")
 async def submit_data(
